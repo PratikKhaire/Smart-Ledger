@@ -1,0 +1,50 @@
+// Smart Mini-Ledger — Prisma Schema
+// Database: SQLite (zero-config for local development)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  type      String   // "INCOME" | "EXPENSE"
+  amount    Float
+  category  String
+  date      DateTime
+  note      String?
+  isShared  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sharedExpense SharedExpense?
+
+  @@index([date(sort: Desc)])
+  @@index([category])
+  @@index([type, date])
+}
+
+model SharedExpense {
+  id                  String   @id @default(cuid())
+  transactionId       String   @unique
+  paidByParticipantId String?
+  splitMethod         String   // "EQUAL" | "EXACT"
+
+  transaction  Transaction   @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  participants Participant[]
+}
+
+model Participant {
+  id              String @id @default(cuid())
+  sharedExpenseId String
+  name            String
+  owedAmount      Float
+
+  sharedExpense SharedExpense @relation(fields: [sharedExpenseId], references: [id], onDelete: Cascade)
+
+  @@unique([sharedExpenseId, name])
+}
