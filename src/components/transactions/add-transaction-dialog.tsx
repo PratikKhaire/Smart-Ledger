@@ -1,10 +1,33 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { X, Plus, Minus, Users, AlertCircle, Loader2 } from "lucide-react";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "@/lib/utils";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { X, Plus, Minus, Users, AlertCircle, Loader2, ChevronDown, Search, Check } from "lucide-react";
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryColor } from "@/lib/utils";
 import { formatCurrency } from "@/lib/currency";
 import { calculateEqualSplit, validateExactSplit, roundToTwo } from "@/lib/split-calculator";
+
+const CATEGORY_META: Record<string, { description: string; gradient: string }> = {
+  food: { description: "Dining, restaurants, groceries, fast food.", gradient: "linear-gradient(135deg, #f97316, #fdba74)" },
+  transport: { description: "Fuel, public transit, taxi, parking.", gradient: "linear-gradient(135deg, #3b82f6, #93c5fd)" },
+  shopping: { description: "Clothing, electronics, gifts, books.", gradient: "linear-gradient(135deg, #8b5cf6, #c084fc)" },
+  entertainment: { description: "Movies, concerts, gaming, streaming.", gradient: "linear-gradient(135deg, #ec4899, #fbcfe8)" },
+  bills: { description: "Subscriptions, phone, internet, utilities.", gradient: "linear-gradient(135deg, #ef4444, #fca5a5)" },
+  health: { description: "Doctors, pharmacy, medical, fitness.", gradient: "linear-gradient(135deg, #10b981, #6ee7b7)" },
+  education: { description: "Tuition, courses, tutorials, textbooks.", gradient: "linear-gradient(135deg, #06b6d4, #67e8f9)" },
+  rent: { description: "Monthly housing rent, lease payment.", gradient: "linear-gradient(135deg, #f43f5e, #fda4af)" },
+  utilities: { description: "Electricity, gas, water, waste bills.", gradient: "linear-gradient(135deg, #64748b, #cbd5e1)" },
+  groceries: { description: "Supermarket, household items, grocery.", gradient: "linear-gradient(135deg, #fb923c, #fde047)" },
+  travel: { description: "Flights, hotel booking, vacations.", gradient: "linear-gradient(135deg, #0ea5e9, #7dd3fc)" },
+  salary: { description: "Primary job monthly paycheck, payroll.", gradient: "linear-gradient(135deg, #22c55e, #86efac)" },
+  freelance: { description: "Side gigs, contract work, consulting.", gradient: "linear-gradient(135deg, #a3e635, #d9f99d)" },
+  investment: { description: "Stocks dividends, interest payouts.", gradient: "linear-gradient(135deg, #eab308, #fef08a)" },
+  other: { description: "Miscellaneous transaction records.", gradient: "linear-gradient(135deg, #94a3b8, #cbd5e1)" },
+};
+
+function getCategoryMeta(category: string) {
+  const key = category.toLowerCase();
+  return CATEGORY_META[key] || CATEGORY_META.other;
+}
 
 interface Participant {
   name: string;
@@ -36,6 +59,24 @@ export default function AddTransactionDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+
+  // Dropdown states
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -316,19 +357,266 @@ export default function AddTransactionDialog({
 
           {/* Category */}
           <div style={{ marginBottom: 16 }}>
-            <label className="label" htmlFor="category">Category</label>
-            <select
-              id="category"
-              className="select"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              aria-describedby={errors.category ? "category-error" : undefined}
-            >
-              <option value="">Select a category</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
+            <label className="label">Category</label>
+            <div style={{ position: "relative" }} ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  width: "100%",
+                  padding: "10px 14px",
+                  background: "var(--bg-input)",
+                  border: errors.category ? "1px solid var(--accent-red)" : "1px solid var(--border-primary)",
+                  borderRadius: "var(--radius-sm)",
+                  color: category ? "var(--text-primary)" : "var(--text-muted)",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  transition: "all var(--transition-fast)",
+                  outline: "none",
+                }}
+              >
+                {category ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: "6px",
+                        background: getCategoryMeta(category).gradient,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "9px",
+                        fontWeight: 800,
+                        color: "white",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+                      }}
+                    >
+                      {category.charAt(0).toUpperCase()}
+                    </div>
+                    <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{category}</span>
+                  </div>
+                ) : (
+                  "Select a category"
+                )}
+                <ChevronDown size={16} style={{ color: "var(--text-secondary)" }} />
+              </button>
+
+              {dropdownOpen && (
+                <div
+                  className="animate-slide-up"
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    right: 0,
+                    marginTop: 8,
+                    background: "var(--bg-card)",
+                    border: "1px solid var(--border-primary)",
+                    borderRadius: "16px",
+                    boxShadow: "var(--shadow-elevated)",
+                    zIndex: 100,
+                    padding: "14px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                  }}
+                >
+                  {/* Search Input Box */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      background: "var(--bg-input)",
+                      border: "1px solid var(--border-primary)",
+                      borderRadius: "10px",
+                      padding: "8px 12px",
+                    }}
+                  >
+                    <Search size={15} style={{ color: "var(--text-muted)" }} />
+                    <input
+                      type="text"
+                      placeholder="Search categories..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--text-primary)",
+                        fontSize: "13px",
+                        outline: "none",
+                        width: "100%",
+                      }}
+                    />
+                    {searchQuery && (
+                      <X
+                        size={14}
+                        style={{ color: "var(--text-muted)", cursor: "pointer" }}
+                        onClick={() => setSearchQuery("")}
+                      />
+                    )}
+                  </div>
+
+                  {/* Header Row */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      color: "var(--text-muted)",
+                      padding: "0 4px",
+                    }}
+                  >
+                    <span>Categories</span>
+                    {searchQuery && (
+                      <span
+                        style={{ color: "var(--accent-purple)", cursor: "pointer", textTransform: "none" }}
+                        onClick={() => setSearchQuery("")}
+                      >
+                        Reset
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Categories Scrollable Area */}
+                  <div
+                    style={{
+                      maxHeight: "180px",
+                      overflowY: "auto",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 2,
+                    }}
+                  >
+                    {categories
+                      .filter((cat) => cat.toLowerCase().includes(searchQuery.toLowerCase()))
+                      .map((cat) => {
+                        const isSelected = category === cat;
+                        const meta = getCategoryMeta(cat);
+                        return (
+                          <div
+                            key={cat}
+                            onClick={() => {
+                              setCategory(cat);
+                              setDropdownOpen(false);
+                              setSearchQuery("");
+                            }}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              padding: "8px 10px",
+                              borderRadius: "8px",
+                              cursor: "pointer",
+                              transition: "all var(--transition-fast)",
+                              background: isSelected ? "var(--bg-elevated)" : "transparent",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isSelected) e.currentTarget.style.backgroundColor = "var(--bg-card-hover)";
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isSelected) e.currentTarget.style.backgroundColor = "transparent";
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              {/* Colored Gradient Logo Box */}
+                              <div
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: "8px",
+                                  background: meta.gradient,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: "12px",
+                                  fontWeight: 800,
+                                  color: "white",
+                                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                                }}
+                              >
+                                {cat.charAt(0).toUpperCase()}
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column" }}>
+                                <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)" }}>
+                                  {cat
+                                }</span>
+                                <span style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: 1 }}>
+                                  {meta.description}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {/* Checkmark */}
+                            {isSelected && (
+                              <span style={{ color: "var(--accent-purple)", display: "flex" }}>
+                                <Check size={15} strokeWidth={3} />
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  {/* Bottom Quick Select Tags */}
+                  <div
+                    style={{
+                      borderTop: "1px solid var(--border-primary)",
+                      paddingTop: "10px",
+                      marginTop: "2px",
+                    }}
+                  >
+                    <div style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 8, paddingLeft: 4 }}>
+                      Quick Select
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {(type === "EXPENSE" ? ["Food", "Groceries", "Rent", "Utilities"] : ["Salary", "Freelance", "Investment"]).map((cat) => (
+                        <span
+                          key={cat}
+                          onClick={() => {
+                            setCategory(cat);
+                            setDropdownOpen(false);
+                          }}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            padding: "4px 8px",
+                            borderRadius: "6px",
+                            background: `${getCategoryColor(cat)}12`,
+                            border: `1px solid ${getCategoryColor(cat)}24`,
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            color: getCategoryColor(cat),
+                            cursor: "pointer",
+                            transition: "transform var(--transition-fast)",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = "scale(1.04)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = "scale(1)";
+                          }}
+                        >
+                          <span style={{ width: 4, height: 4, borderRadius: "50%", background: getCategoryColor(cat) }} />
+                          {cat}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+              )}
+            </div>
             {errors.category && (
               <div id="category-error" className="field-error">{errors.category}</div>
             )}
