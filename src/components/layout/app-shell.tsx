@@ -40,28 +40,8 @@ const NAV_GROUPS = [
     title: "Workspace",
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, isReal: true },
-      { href: "#", label: "Projects", icon: FolderKanban, isReal: false },
-      { href: "#", label: "Tasks", icon: CheckSquare, isReal: false },
-      { href: "#", label: "Clients", icon: Users, isReal: false },
-      { href: "#", label: "Messages", icon: MessageSquare, isReal: false },
-    ]
-  },
-  {
-    title: "Leads",
-    items: [
-      { href: "#", label: "Social Medias", icon: Share2, isReal: false },
-      { href: "#", label: "Email", icon: Mail, isReal: false },
-      { href: "#", label: "Affiliates", icon: Award, isReal: false },
-      { href: "#", label: "Job Board", icon: Briefcase, isReal: false },
-    ]
-  },
-  {
-    title: "Payments",
-    items: [
       { href: "/transactions", label: "Transactions", icon: ArrowLeftRight, isReal: true },
       { href: "/analytics", label: "Analytics", icon: BarChart3, isReal: true },
-      { href: "#", label: "Invoices", icon: FileText, isReal: false },
-      { href: "#", label: "Expenses", icon: CreditCard, isReal: false },
     ]
   },
   {
@@ -233,11 +213,10 @@ export default function AppShell({ children, onAddTransaction }: AppShellProps) 
 
         {/* Mobile bottom navigation bar */}
         <nav className="mobile-bottom-nav show-mobile-only">
-          {NAV_GROUPS[0].items.filter(i => i.isReal).concat(
-            NAV_GROUPS[2].items.filter(i => i.isReal),
-            NAV_GROUPS[3].items.filter(i => i.isReal)
-          ).map((item) => {
-            const isActive = pathname === item.href;
+          {NAV_GROUPS.flatMap((group) => group.items)
+            .filter((item) => item.isReal)
+            .map((item) => {
+              const isActive = pathname === item.href;
             const Icon = item.icon;
             return (
               <Link
