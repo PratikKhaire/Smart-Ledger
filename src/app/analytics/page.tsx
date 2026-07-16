@@ -6,6 +6,7 @@ import ExpenseTrendChart from "@/components/analytics/expense-trend-chart";
 import CategoryBreakdownChart from "@/components/analytics/category-breakdown-chart";
 import SummaryCards from "@/components/dashboard/summary-cards";
 import SmartInsightCard from "@/components/dashboard/smart-insight-card";
+import BudgetProgressCard from "@/components/analytics/budget-progress-card";
 import AddTransactionDialog from "@/components/transactions/add-transaction-dialog";
 import { useSummary } from "@/hooks/use-summary";
 
@@ -50,11 +51,25 @@ export default function AnalyticsPage() {
             />
           </div>
 
-          {/* Smart Insight */}
-          <SmartInsightCard
-            insight={analytics?.insight ?? null}
-            isLoading={isLoading}
-          />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
+              gap: 16,
+            }}
+          >
+            {/* Smart Insight */}
+            <SmartInsightCard
+              insight={analytics?.insight ?? null}
+              isLoading={isLoading}
+            />
+
+            {/* Budgets */}
+            <BudgetProgressCard
+              budgets={analytics?.budgets ?? null}
+              isLoading={isLoading}
+            />
+          </div>
         </div>
       </div>
 

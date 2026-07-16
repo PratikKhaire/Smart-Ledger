@@ -55,9 +55,17 @@ export interface SmartInsight {
   trend?: "up" | "down" | "neutral";
 }
 
+export interface BudgetProgress {
+  category: string;
+  limitAmount: number;
+  spentAmount: number;
+  percentage: number;
+}
+
 export interface AnalyticsSummary {
   summary: SummaryData;
   categoryBreakdown: CategoryBreakdown[];
   monthlyTrend: MonthlyTrend[];
   insight: SmartInsight;
+  budgets: BudgetProgress[];
 }

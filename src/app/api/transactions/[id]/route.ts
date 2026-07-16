@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   getTransactionById,
   updateTransaction,
@@ -6,6 +6,7 @@ import {
 } from "@/services/transaction-service";
 import { updateTransactionSchema } from "@/schemas/transaction";
 import { handleApiError, NotFoundError, ValidationError } from "@/lib/errors";
+import { getCurrentUser } from "@/lib/auth";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -16,14 +17,19 @@ interface RouteParams {
  */
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
-    const transaction = await getTransactionById(id);
+    const transaction = await getTransactionById(id, user.userId);
 
     if (!transaction) {
       throw new NotFoundError("Transaction", id);
     }
 
-    return Response.json({ data: transaction });
+    return NextResponse.json({ data: transaction });
   } catch (error) {
     return handleApiError(error);
   }
@@ -34,8 +40,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
-    const existing = await getTransactionById(id);
+    const existing = await getTransactionById(id, user.userId);
 
     if (!existing) {
       throw new NotFoundError("Transaction", id);
@@ -54,8 +65,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       throw new ValidationError("Invalid update data", fieldErrors);
     }
 
-    const transaction = await updateTransaction(id, parsed.data);
-    return Response.json({ data: transaction });
+    const transaction = await updateTransaction(id, user.userId, parsed.data);
+    return NextResponse.json({ data: transaction });
   } catch (error) {
     return handleApiError(error);
   }
@@ -66,15 +77,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
-    const existing = await getTransactionById(id);
+    const existing = await getTransactionById(id, user.userId);
 
     if (!existing) {
       throw new NotFoundError("Transaction", id);
     }
 
-    await deleteTransaction(id);
-    return Response.json({ data: { id } });
+    await deleteTransaction(id, user.userId);
+    return NextResponse.json({ data: { id } });
   } catch (error) {
     return handleApiError(error);
   }

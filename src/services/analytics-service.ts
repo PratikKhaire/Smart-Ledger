@@ -12,17 +12,17 @@ import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
  * Analytics service — computes derived financial data
  */
 
-export async function getSummary(): Promise<SummaryData> {
+export async function getSummary(userId: string): Promise<SummaryData> {
   const [incomeResult, expenseResult, countResult] = await Promise.all([
     prisma.transaction.aggregate({
-      where: { type: "INCOME" },
+      where: { type: "INCOME", userId },
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { type: "EXPENSE" },
+      where: { type: "EXPENSE", userId },
       _sum: { amount: true },
     }),
-    prisma.transaction.count(),
+    prisma.transaction.count({ where: { userId } }),
   ]);
 
   const totalIncome = incomeResult._sum.amount || 0;
@@ -36,10 +36,10 @@ export async function getSummary(): Promise<SummaryData> {
   };
 }
 
-export async function getCategoryBreakdown(): Promise<CategoryBreakdown[]> {
+export async function getCategoryBreakdown(userId: string): Promise<CategoryBreakdown[]> {
   const expenses = await prisma.transaction.groupBy({
     by: ["category"],
-    where: { type: "EXPENSE" },
+    where: { type: "EXPENSE", userId },
     _sum: { amount: true },
     _count: true,
     orderBy: { _sum: { amount: "desc" } },
@@ -61,7 +61,7 @@ export async function getCategoryBreakdown(): Promise<CategoryBreakdown[]> {
   }));
 }
 
-export async function getMonthlyTrend(): Promise<MonthlyTrend[]> {
+export async function getMonthlyTrend(userId: string): Promise<MonthlyTrend[]> {
   const now = new Date();
   const months: MonthlyTrend[] = [];
 
@@ -74,6 +74,7 @@ export async function getMonthlyTrend(): Promise<MonthlyTrend[]> {
       prisma.transaction.aggregate({
         where: {
           type: "INCOME",
+          userId,
           date: { gte: monthStart, lte: monthEnd },
         },
         _sum: { amount: true },
@@ -81,6 +82,7 @@ export async function getMonthlyTrend(): Promise<MonthlyTrend[]> {
       prisma.transaction.aggregate({
         where: {
           type: "EXPENSE",
+          userId,
           date: { gte: monthStart, lte: monthEnd },
         },
         _sum: { amount: true },
@@ -97,8 +99,8 @@ export async function getMonthlyTrend(): Promise<MonthlyTrend[]> {
   return months;
 }
 
-export async function getSmartInsight(): Promise<SmartInsight> {
-  const transactionCount = await prisma.transaction.count();
+export async function getSmartInsight(userId: string): Promise<SmartInsight> {
+  const transactionCount = await prisma.transaction.count({ where: { userId } });
 
   if (transactionCount < 3) {
     return {
@@ -113,7 +115,7 @@ export async function getSmartInsight(): Promise<SmartInsight> {
   // Find top spending category
   const topCategory = await prisma.transaction.groupBy({
     by: ["category"],
-    where: { type: "EXPENSE" },
+    where: { type: "EXPENSE", userId },
     _sum: { amount: true },
     orderBy: { _sum: { amount: "desc" } },
     take: 1,
@@ -138,6 +140,7 @@ export async function getSmartInsight(): Promise<SmartInsight> {
     prisma.transaction.aggregate({
       where: {
         type: "EXPENSE",
+        userId,
         date: { gte: currentMonthStart },
       },
       _sum: { amount: true },
@@ -145,6 +148,7 @@ export async function getSmartInsight(): Promise<SmartInsight> {
     prisma.transaction.aggregate({
       where: {
         type: "EXPENSE",
+        userId,
         date: { gte: lastMonthStart, lte: lastMonthEnd },
       },
       _sum: { amount: true },
@@ -188,14 +192,53 @@ export async function getSmartInsight(): Promise<SmartInsight> {
   };
 }
 
-export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
-  const [summary, categoryBreakdown, monthlyTrend, insight] =
+export async function getBudgetsProgress(userId: string) {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  const monthStart = startOfMonth(now);
+
+  const budgets = await prisma.budget.findMany({
+    where: { userId, month: currentMonth, year: currentYear },
+  });
+
+  if (budgets.length === 0) return [];
+
+  // Get spent amount for each budgeted category
+  const expenses = await prisma.transaction.groupBy({
+    by: ["category"],
+    where: {
+      type: "EXPENSE",
+      userId,
+      date: { gte: monthStart },
+      category: { in: budgets.map((b) => b.category) },
+    },
+    _sum: { amount: true },
+  });
+
+  const spentMap = new Map(expenses.map((e) => [e.category, e._sum.amount || 0]));
+
+  return budgets.map((b) => {
+    const spentAmount = spentMap.get(b.category) || 0;
+    const percentage = Math.min(Math.round((spentAmount / b.limitAmount) * 100), 100);
+    return {
+      category: b.category,
+      limitAmount: b.limitAmount,
+      spentAmount,
+      percentage,
+    };
+  });
+}
+
+export async function getAnalyticsSummary(userId: string): Promise<AnalyticsSummary> {
+  const [summary, categoryBreakdown, monthlyTrend, insight, budgets] =
     await Promise.all([
-      getSummary(),
-      getCategoryBreakdown(),
-      getMonthlyTrend(),
-      getSmartInsight(),
+      getSummary(userId),
+      getCategoryBreakdown(userId),
+      getMonthlyTrend(userId),
+      getSmartInsight(userId),
+      getBudgetsProgress(userId),
     ]);
 
-  return { summary, categoryBreakdown, monthlyTrend, insight };
+  return { summary, categoryBreakdown, monthlyTrend, insight, budgets };
 }

@@ -19,6 +19,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   transactions Transaction[]
+  budgets      Budget[]
 }
 
 model Transaction {
@@ -61,4 +62,20 @@ model Participant {
   sharedExpense SharedExpense @relation(fields: [sharedExpenseId], references: [id], onDelete: Cascade)
 
   @@unique([sharedExpenseId, name])
+}
+
+model Budget {
+  id          String   @id @default(cuid())
+  category    String
+  limitAmount Float
+  month       Int      // 1-12
+  year        Int
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category, month, year])
+  @@index([userId])
 }

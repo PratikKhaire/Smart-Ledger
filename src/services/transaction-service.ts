@@ -10,7 +10,7 @@ import type {
  * Transaction service — business logic separated from route handlers
  */
 
-export async function createTransaction(input: CreateTransactionInput) {
+export async function createTransaction(input: CreateTransactionInput, userId: string) {
   const { sharedExpense, ...transactionData } = input;
 
   return prisma.transaction.create({
@@ -21,6 +21,7 @@ export async function createTransaction(input: CreateTransactionInput) {
       date: new Date(transactionData.date),
       note: transactionData.note || null,
       isShared: transactionData.isShared,
+      userId: userId,
       ...(transactionData.isShared && sharedExpense
         ? {
             sharedExpense: {
@@ -57,8 +58,8 @@ export async function createTransaction(input: CreateTransactionInput) {
   });
 }
 
-export async function getTransactions(filters?: TransactionFilter) {
-  const where: Record<string, unknown> = {};
+export async function getTransactions(userId: string, filters?: TransactionFilter) {
+  const where: Record<string, unknown> = { userId };
 
   if (filters?.type) {
     where.type = filters.type;
@@ -98,9 +99,9 @@ export async function getTransactions(filters?: TransactionFilter) {
   });
 }
 
-export async function getTransactionById(id: string) {
+export async function getTransactionById(id: string, userId: string) {
   return prisma.transaction.findUnique({
-    where: { id },
+    where: { id, userId },
     include: {
       sharedExpense: {
         include: {
@@ -113,10 +114,11 @@ export async function getTransactionById(id: string) {
 
 export async function updateTransaction(
   id: string,
+  userId: string,
   input: UpdateTransactionInput
 ) {
   return prisma.transaction.update({
-    where: { id },
+    where: { id, userId },
     data: {
       ...(input.type && { type: input.type }),
       ...(input.amount && { amount: input.amount }),
@@ -134,14 +136,15 @@ export async function updateTransaction(
   });
 }
 
-export async function deleteTransaction(id: string) {
+export async function deleteTransaction(id: string, userId: string) {
   return prisma.transaction.delete({
-    where: { id },
+    where: { id, userId },
   });
 }
 
-export async function getCategories() {
+export async function getCategories(userId: string) {
   const categories = await prisma.transaction.findMany({
+    where: { userId },
     select: { category: true },
     distinct: ["category"],
     orderBy: { category: "asc" },

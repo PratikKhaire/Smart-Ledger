@@ -434,21 +434,15 @@ body {
 .app-container {
   display: flex;
   min-height: 100vh;
-  background-color: var(--bg-outer);
-  padding: 28px;
+  background-color: var(--bg-primary);
   box-sizing: border-box;
 }
 
 .app-frame {
   display: flex;
   width: 100%;
-  max-width: 1300px;
   background-color: var(--bg-primary);
-  border-radius: var(--radius-xxl);
   overflow: hidden;
-  border: 1px solid var(--border-primary);
-  box-shadow: var(--shadow-card);
-  margin: 0 auto;
   position: relative;
 }
 

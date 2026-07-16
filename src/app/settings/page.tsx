@@ -7,6 +7,9 @@ import {
   CurrencySelector,
   SeedDemoDataCard,
   DangerZoneCard,
+  BudgetConfigCard,
+  DataExportCard,
+  ProfileSettingsCard,
 } from "@/components/settings/settings-cards";
 
 export default function SettingsPage() {
@@ -32,7 +35,10 @@ export default function SettingsPage() {
             maxWidth: 600,
           }}
         >
+          <ProfileSettingsCard />
           <CurrencySelector />
+          <BudgetConfigCard />
+          <DataExportCard />
           <SeedDemoDataCard />
           <DangerZoneCard />
         </div>
