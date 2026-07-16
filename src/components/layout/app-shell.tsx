@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   ArrowLeftRight,
@@ -24,7 +24,8 @@ import {
   Briefcase,
   FileText,
   CreditCard,
-  ChevronRight
+  ChevronRight,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -57,10 +58,47 @@ interface AppShellProps {
   onAddTransaction?: () => void;
 }
 
+interface AuthUser {
+  id: string;
+  email: string;
+  name: string | null;
+}
+
 export default function AppShell({ children, onAddTransaction }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fetch authenticated user
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+        }
+      } catch {
+        // silently ignore — middleware handles redirect
+      }
+    }
+    fetchUser();
+  }, []);
+
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem("smart-ledger-theme") as
@@ -84,6 +122,20 @@ export default function AppShell({ children, onAddTransaction }: AppShellProps) 
     localStorage.setItem("smart-ledger-theme", next);
   };
 
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+      router.refresh();
+    } catch {
+      // force redirect
+      window.location.href = "/login";
+    }
+  };
+
+  const displayName = user?.name || user?.email?.split("@")[0] || "User";
+  const displayInitial = displayName.charAt(0).toUpperCase();
+
   const currentPage = NAV_GROUPS
     .flatMap((group) => group.items)
     .find((item) => item.href === pathname && item.isReal)?.label || "Dashboard";
@@ -104,17 +156,78 @@ export default function AppShell({ children, onAddTransaction }: AppShellProps) 
           </div>
 
           {/* User Profile Pill */}
-          <div className="profile-pill">
-            <img
-              src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=faces"
-              alt="Amanda Smith"
-              className="profile-avatar"
-            />
-            <div className="profile-info">
-              <div className="profile-name">Amanda Smith</div>
-              <div className="profile-sub">Professional Account</div>
+          <div style={{ position: "relative" }} ref={profileDropdownRef}>
+            <div
+              className="profile-pill"
+              style={{ cursor: "pointer" }}
+              onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+            >
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "8px",
+                  background: "var(--gradient-primary)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "13px",
+                  fontWeight: 800,
+                  color: "white",
+                  flexShrink: 0,
+                }}
+              >
+                {displayInitial}
+              </div>
+              <div className="profile-info">
+                <div className="profile-name">{displayName}</div>
+                <div className="profile-sub">{user?.email || "Loading..."}</div>
+              </div>
+              <ChevronRight size={14} className="profile-arrow" />
             </div>
-            <ChevronRight size={14} className="profile-arrow" />
+
+            {/* Profile Dropdown */}
+            {profileDropdownOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 6px)",
+                  left: 0,
+                  right: 0,
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-primary)",
+                  borderRadius: "10px",
+                  boxShadow: "var(--shadow-elevated)",
+                  padding: "6px",
+                  zIndex: 50,
+                }}
+              >
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    width: "100%",
+                    padding: "9px 12px",
+                    background: "transparent",
+                    border: "none",
+                    borderRadius: "6px",
+                    color: "var(--accent-red)",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    fontFamily: "inherit",
+                    cursor: "pointer",
+                    transition: "background var(--transition-fast)",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "var(--accent-red-dim)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                >
+                  <LogOut size={15} />
+                  Sign Out
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Navigation Groups */}
@@ -255,16 +368,53 @@ export default function AppShell({ children, onAddTransaction }: AppShellProps) 
 
               {/* User Profile Pill in mobile drawer */}
               <div className="profile-pill" style={{ margin: "0 16px 16px 16px" }}>
-                <img
-                  src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=faces"
-                  alt="Amanda Smith"
-                  className="profile-avatar"
-                />
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "8px",
+                    background: "var(--gradient-primary)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "13px",
+                    fontWeight: 800,
+                    color: "white",
+                    flexShrink: 0,
+                  }}
+                >
+                  {displayInitial}
+                </div>
                 <div className="profile-info">
-                  <div className="profile-name">Amanda Smith</div>
-                  <div className="profile-sub">Professional Account</div>
+                  <div className="profile-name">{displayName}</div>
+                  <div className="profile-sub">{user?.email || "Loading..."}</div>
                 </div>
                 <ChevronRight size={14} className="profile-arrow" />
+              </div>
+
+              {/* Mobile Logout Button */}
+              <div style={{ padding: "0 16px", marginBottom: 12 }}>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    width: "100%",
+                    padding: "9px 12px",
+                    background: "var(--accent-red-dim)",
+                    border: "1px solid rgba(244, 63, 94, 0.15)",
+                    borderRadius: "8px",
+                    color: "var(--accent-red)",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    fontFamily: "inherit",
+                    cursor: "pointer",
+                  }}
+                >
+                  <LogOut size={15} />
+                  Sign Out
+                </button>
               </div>
 
               <div className="sidebar-nav-scroll" style={{ padding: "0 16px" }}>
