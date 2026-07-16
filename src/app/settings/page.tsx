@@ -15,11 +15,11 @@ export default function SettingsPage() {
   return (
     <AppShell onAddTransaction={() => setDialogOpen(true)}>
       <div>
-        <div style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
+        <div className="desktop-only" style={{ flexDirection: "column", gap: 6, marginBottom: 24 }}>
+          <h2 style={{ fontSize: "30px", fontWeight: 800, letterSpacing: "-1.0px", color: "var(--text-primary)", lineHeight: 1.1 }}>
             Settings
           </h2>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+          <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
             Manage your preferences and app data.
           </p>
         </div>
