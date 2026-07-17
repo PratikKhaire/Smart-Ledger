@@ -2,15 +2,34 @@ import { prisma } from "@/lib/prisma";
 import { handleApiError } from "@/lib/errors";
 import { subDays, subMonths } from "date-fns";
 
+import { getCurrentUser } from "@/lib/auth";
+
 /**
  * POST /api/seed — Seed demo data
  */
 export async function POST() {
   try {
-    // Clear existing data first
-    await prisma.participant.deleteMany();
-    await prisma.sharedExpense.deleteMany();
-    await prisma.transaction.deleteMany();
+    const user = await getCurrentUser();
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Clear existing data first for this user
+    const userTransactions = await prisma.transaction.findMany({
+      where: { userId: user.userId },
+      select: { id: true }
+    });
+    const txnIds = userTransactions.map(t => t.id);
+
+    await prisma.participant.deleteMany({
+      where: { sharedExpense: { transactionId: { in: txnIds } } }
+    });
+    await prisma.sharedExpense.deleteMany({
+      where: { transactionId: { in: txnIds } }
+    });
+    await prisma.transaction.deleteMany({
+      where: { userId: user.userId }
+    });
 
     const now = new Date();
 
@@ -48,6 +67,7 @@ export async function POST() {
           date: txn.date,
           note: txn.note,
           isShared: false,
+          userId: user.userId,
         },
       });
     }
@@ -57,6 +77,7 @@ export async function POST() {
       data: {
         type: "EXPENSE", amount: 4800, category: "Food", date: subDays(now, 3),
         note: "Group dinner at Barbeque Nation", isShared: true,
+        userId: user.userId,
         sharedExpense: {
           create: {
             splitMethod: "EQUAL",
@@ -77,6 +98,7 @@ export async function POST() {
       data: {
         type: "EXPENSE", amount: 6500, category: "Travel", date: subDays(now, 10),
         note: "Lonavala weekend trip", isShared: true,
+        userId: user.userId,
         sharedExpense: {
           create: {
             splitMethod: "EXACT",
@@ -96,6 +118,7 @@ export async function POST() {
       data: {
         type: "EXPENSE", amount: 1500, category: "Entertainment", date: subDays(subMonths(now, 1), 4),
         note: "Movie tickets for 3", isShared: true,
+        userId: user.userId,
         sharedExpense: {
           create: {
             splitMethod: "EQUAL",

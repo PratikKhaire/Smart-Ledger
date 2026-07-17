@@ -20,7 +20,7 @@ export function useSummary(): UseSummaryReturn {
       setIsLoading(true);
       setError(null);
 
-      const res = await fetch("/api/analytics/summary");
+      const res = await fetch("/api/analytics/summary", { cache: "no-store" });
       if (!res.ok) {
         throw new Error("Failed to fetch analytics");
       }
