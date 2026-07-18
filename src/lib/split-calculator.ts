@@ -1,82 +1,55 @@
 /**
- * Pure split calculation utilities
- * Handles deterministic rounding and remainder distribution
+ * Split calculation utilities for equal and exact splits.
  */
 
 /**
- * Calculate equal split amounts for a given total and participant count.
- * Uses deterministic rounding: all participants get the floor amount,
- * and the first participant absorbs the remainder (max 1 cent difference).
+ * Divides an amount equally across N people.
+ * Distributes any rounding remainder to the first recipients.
+ * Returns an array of amounts that sum exactly to the total.
  */
-export function calculateEqualSplit(
-  totalAmount: number,
-  participantCount: number
-): number[] {
-  if (participantCount <= 0) return [];
-  if (participantCount === 1) return [roundToTwo(totalAmount)];
-
-  const baseAmount = Math.floor((totalAmount / participantCount) * 100) / 100;
-  const remainder = roundToTwo(totalAmount - baseAmount * participantCount);
-
-  const amounts: number[] = [];
-  for (let i = 0; i < participantCount; i++) {
-    if (i === 0) {
-      amounts.push(roundToTwo(baseAmount + remainder));
-    } else {
-      amounts.push(baseAmount);
-    }
-  }
-
-  return amounts;
+export function calculateEqualSplit(total: number, count: number): number[] {
+  if (count <= 0) return [];
+  const base = Math.floor((total * 100) / count) / 100;
+  const remainder = Math.round((total - base * count) * 100);
+  return Array.from({ length: count }, (_, i) =>
+    i < remainder ? roundToTwo(base + 0.01) : base
+  );
 }
 
 /**
- * Validate that exact split amounts sum to the total.
- * Allows ±0.01 tolerance for floating-point rounding.
+ * Rounds a number to 2 decimal places (banker-safe).
+ */
+export function roundToTwo(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/**
+ * Validates that the exact split amounts sum correctly to the total.
  */
 export function validateExactSplit(
-  totalAmount: number,
-  participantAmounts: number[]
+  total: number,
+  amounts: number[]
 ): { valid: boolean; difference: number } {
-  const sum = participantAmounts.reduce((acc, val) => acc + val, 0);
-  const difference = roundToTwo(Math.abs(totalAmount - sum));
-  return {
-    valid: difference <= 0.01,
-    difference,
-  };
+  const sum = roundToTwo(amounts.reduce((acc, a) => acc + a, 0));
+  const difference = roundToTwo(Math.abs(sum - total));
+  return { valid: difference < 0.01, difference };
 }
 
 /**
- * Preview split calculation for display
+ * Generates a preview of a split for display.
  */
 export function previewSplit(
-  totalAmount: number,
+  total: number,
   method: "EQUAL" | "EXACT",
-  participantNames: string[],
+  names: string[],
   exactAmounts?: number[]
 ): { name: string; owedAmount: number }[] {
   if (method === "EQUAL") {
-    const amounts = calculateEqualSplit(totalAmount, participantNames.length);
-    return participantNames.map((name, i) => ({
-      name,
-      owedAmount: amounts[i] ?? 0,
-    }));
+    const amounts = calculateEqualSplit(total, names.length);
+    return names.map((name, i) => ({ name, owedAmount: amounts[i] }));
   }
-
-  // EXACT mode: use provided amounts
-  if (!exactAmounts || exactAmounts.length !== participantNames.length) {
-    return participantNames.map((name) => ({ name, owedAmount: 0 }));
-  }
-
-  return participantNames.map((name, i) => ({
+  return names.map((name, i) => ({
     name,
-    owedAmount: roundToTwo(exactAmounts[i]),
+    owedAmount: roundToTwo(exactAmounts?.[i] ?? 0),
   }));
-}
-
-/**
- * Round a number to exactly two decimal places
- */
-export function roundToTwo(num: number): number {
-  return Math.round((num + Number.EPSILON) * 100) / 100;
 }

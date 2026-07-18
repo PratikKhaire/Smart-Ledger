@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { formatCurrency } from "@/lib/currency";
 import { formatTransactionDate, getCategoryColor } from "@/lib/utils";
-import { Trash2, Users, ChevronDown, ChevronUp, AlertCircle, RefreshCw } from "lucide-react";
+import { Trash2, Users, ChevronDown, ChevronUp, AlertCircle, RefreshCw, Share2, Check } from "lucide-react";
 import type { TransactionWithSharedExpense } from "@/types/transaction";
 
 interface TransactionListProps {
@@ -24,9 +24,26 @@ export default function TransactionList({
   onRetry,
 }: TransactionListProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
 
   const toggleExpand = useCallback((id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
+  }, []);
+
+  const handleShare = useCallback(async (e: React.MouseEvent, txnId: string) => {
+    e.stopPropagation();
+    try {
+      const res = await fetch(`/api/shared-expenses/${txnId}/share`, { method: "POST" });
+      const data = await res.json();
+      if (data.data?.shareToken) {
+        const url = `${window.location.origin}/shared/${data.data.shareToken}`;
+        await navigator.clipboard.writeText(url);
+        setCopiedShareId(txnId);
+        setTimeout(() => setCopiedShareId(null), 2000);
+      }
+    } catch {
+      // silent
+    }
   }, []);
 
   if (isLoading) {
@@ -157,9 +174,20 @@ export default function TransactionList({
                 </div>
 
                 {txn.isShared && (
-                  <button className="btn btn-ghost btn-icon" style={{ width: 28, height: 28 }}>
-                    {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  </button>
+                  <>
+                    <button
+                      className="btn btn-ghost btn-icon"
+                      style={{ width: 28, height: 28, color: copiedShareId === txn.id ? "var(--accent-green)" : "var(--text-secondary)" }}
+                      onClick={(e) => handleShare(e, txn.id)}
+                      aria-label="Copy share link"
+                      title={copiedShareId === txn.id ? "Copied!" : "Copy share link"}
+                    >
+                      {copiedShareId === txn.id ? <Check size={13} /> : <Share2 size={13} />}
+                    </button>
+                    <button className="btn btn-ghost btn-icon" style={{ width: 28, height: 28 }}>
+                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </button>
+                  </>
                 )}
 
                 <button

@@ -8,7 +8,7 @@ const JWT_SECRET = new TextEncoder().encode(
 const TOKEN_NAME = "smart-ledger-token";
 
 // Routes that require authentication
-const PROTECTED_ROUTES = ["/", "/transactions", "/analytics", "/settings"];
+const PROTECTED_ROUTES = ["/", "/transactions", "/analytics", "/settings", "/groups"];
 
 // Routes only for unauthenticated users
 const AUTH_ROUTES = ["/login", "/signup"];

@@ -1,5 +1,5 @@
 // Smart Mini-Ledger — Prisma Schema
-// Database: SQLite (zero-config for local development)
+// Database: PostgreSQL (Neon for production, local for dev)
 
 generator client {
   provider = "prisma-client-js"
@@ -10,6 +10,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -18,9 +20,15 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  transactions Transaction[]
-  budgets      Budget[]
+  transactions     Transaction[]
+  budgets          Budget[]
+  groupsCreated    Group[]       @relation("GroupCreator")
+  groupMemberships GroupMember[]
+  groupExpenses    GroupExpense[]
+  groupSplits      GroupSplit[]
 }
+
+// ─── Personal Transactions ────────────────────────────────────────────────────
 
 model Transaction {
   id        String   @id @default(cuid())
@@ -44,10 +52,11 @@ model Transaction {
 }
 
 model SharedExpense {
-  id                  String   @id @default(cuid())
-  transactionId       String   @unique
+  id                  String  @id @default(cuid())
+  transactionId       String  @unique
   paidByParticipantId String?
-  splitMethod         String   // "EQUAL" | "EXACT"
+  splitMethod         String  // "EQUAL" | "EXACT"
+  shareToken          String? @unique // public shareable link token
 
   transaction  Transaction   @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   participants Participant[]
@@ -64,6 +73,8 @@ model Participant {
   @@unique([sharedExpenseId, name])
 }
 
+// ─── Budgets ──────────────────────────────────────────────────────────────────
+
 model Budget {
   id          String   @id @default(cuid())
   category    String
@@ -77,5 +88,72 @@ model Budget {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, category, month, year])
+  @@index([userId])
+}
+
+// ─── Groups ───────────────────────────────────────────────────────────────────
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  inviteCode  String   @unique @default(cuid())
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User           @relation("GroupCreator", fields: [createdById], references: [id])
+  members   GroupMember[]
+  expenses  GroupExpense[]
+
+  @@index([createdById])
+}
+
+model GroupMember {
+  id       String   @id @default(cuid())
+  groupId  String
+  userId   String
+  role     String   @default("MEMBER") // "ADMIN" | "MEMBER"
+  joinedAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId])
+}
+
+model GroupExpense {
+  id          String   @id @default(cuid())
+  groupId     String
+  addedById   String
+  description String
+  amount      Float
+  category    String
+  date        DateTime @default(now())
+  splitMethod String   @default("EQUAL") // "EQUAL" | "EXACT"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  group    Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  addedBy  User         @relation(fields: [addedById], references: [id])
+  splits   GroupSplit[]
+
+  @@index([groupId])
+}
+
+model GroupSplit {
+  id             String    @id @default(cuid())
+  groupExpenseId String
+  userId         String
+  owedAmount     Float
+  isPaid         Boolean   @default(false)
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  groupExpense GroupExpense @relation(fields: [groupExpenseId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupExpenseId, userId])
   @@index([userId])
 }

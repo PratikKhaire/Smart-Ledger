@@ -43,6 +43,7 @@ const NAV_GROUPS = [
       { href: "/", label: "Dashboard", icon: LayoutDashboard, isReal: true },
       { href: "/transactions", label: "Transactions", icon: ArrowLeftRight, isReal: true },
       { href: "/analytics", label: "Analytics", icon: BarChart3, isReal: true },
+      { href: "/groups", label: "Groups", icon: Users, isReal: true },
     ]
   },
   {
@@ -52,6 +53,7 @@ const NAV_GROUPS = [
     ]
   }
 ];
+
 
 interface AppShellProps {
   children: React.ReactNode;
